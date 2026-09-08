@@ -9,34 +9,67 @@ A lightweight, Git-friendly grant application site built with Next.js and TypeSc
 - Automatic local draft saving in the applicant's browser
 - Section completion states and overall completion percentage
 - Editable budget and timeline builders
-- Review / validation before finalizing
+- Dedicated work-sample section
+- Review / validation before submission
 - Client-side PDF generation
-- Native share-sheet support for sending the PDF when the browser/device supports file sharing
-- Email-client fallback with a prefilled subject and message
-- No database, authentication service, storage service, or email provider required
+- Automatic delivery of the completed PDF to `grants@mastil.com` through Resend
+- No database, authentication service, or file-storage service
 
-## Important submission note
+## Grant settings
 
-The zero-infrastructure version cannot silently attach a file to an email using `mailto:` because browsers prohibit that for security reasons.
+Grant-specific public settings live in `lib/config.ts`, including:
 
-The flow is:
+- deadline and decision date
+- grant range ($1,000–$25,000)
+- contact email
+- submission email
 
-1. Applicant finalizes the application.
-2. The site creates the PDF locally.
-3. On devices/browsers that support the Web Share API with files, **Email / share application** opens the native share sheet with the PDF attached.
-4. Otherwise, the PDF downloads and the applicant's email client opens with a prefilled message; the applicant attaches the downloaded PDF.
+## Resend / automatic submission
 
-If you later want fully automatic server-side email submission, Resend can be added with one Vercel Marketplace integration and a small API route. It is intentionally not included here.
+The app sends completed application PDFs through a Next.js route at `app/api/submit/route.ts`.
 
-## Before launch
+The verified sending domain is expected to be `wiixii.org`. By default the site sends from:
 
-Open `lib/config.ts` and add the destination email address(es):
-
-```ts
-submissionEmails: ['your@email.com', 'other@email.com']
+```text
+Choroni West Arts Grant <grants@wiixii.org>
 ```
 
-You can also change the deadline and decision date there.
+and delivers applications to:
+
+```text
+grants@mastil.com
+```
+
+### Required Vercel environment variable
+
+In **Vercel → Project → Settings → Environment Variables**, add:
+
+```text
+RESEND_API_KEY=re_...
+```
+
+Add it to Production and Preview if you want submissions to work in both environments.
+
+### Optional sender override
+
+If you want to use a different sender address on the verified domain, add:
+
+```text
+RESEND_FROM_EMAIL=Choroni West Arts Grant <another-address@wiixii.org>
+```
+
+If omitted, the default `grants@wiixii.org` sender is used.
+
+After adding or changing environment variables, redeploy the project so the new values are available to the deployment.
+
+## Applicant flow
+
+1. Applicant completes the multi-step application.
+2. Draft answers are stored locally in the browser while they work.
+3. The site generates a PDF in the browser at submission time.
+4. The PDF is posted to the server-side submission route.
+5. Resend emails the PDF to `grants@mastil.com`.
+6. The applicant sees a submission confirmation and can download their own PDF copy.
 
 ## Local development
 
@@ -47,26 +80,35 @@ npm run dev
 
 Then open http://localhost:3000.
 
+For local submission testing, create `.env.local`:
+
+```text
+RESEND_API_KEY=re_...
+# Optional:
+# RESEND_FROM_EMAIL=Choroni West Arts Grant <grants@wiixii.org>
+```
+
 ## Deploy with Git + Vercel
 
-1. Create a new GitHub repository.
-2. Copy this project into the repository and push it.
-3. In Vercel, choose **Add New → Project**.
-4. Import the GitHub repository.
-5. Vercel should detect Next.js automatically.
-6. Click **Deploy**.
+This repository is intended to be the source of truth.
 
-No environment variables are required.
+1. Push changes to GitHub.
+2. Connect the repository to Vercel.
+3. Use the **Next.js** framework preset.
+4. Leave **Output Directory** unset; Next.js manages its own build output.
+5. Add `RESEND_API_KEY` in Vercel environment variables.
+6. Deploy.
 
 ## Maintenance
 
 Most grant-specific content is in:
 
-- `lib/config.ts` — dates and submission email recipients
-- `app/page.tsx` — public grant page and About copy
+- `lib/config.ts` — dates, grant range, and contact/submission settings
+- `app/page.tsx` — public grant page, eligibility, and post-award terms
 - `app/apply/page.tsx` — application questions, PDF output, and application UX
+- `app/api/submit/route.ts` — automatic email delivery through Resend
 - `app/globals.css` — visual design
 
 ## Applicant privacy
 
-Draft answers are stored only in `localStorage` on the applicant's own browser. Nothing is sent to a server by this version of the site. Applicants should download/send the final PDF before clearing browser data or changing devices.
+Draft answers are stored in `localStorage` on the applicant's browser. They are sent to the server only when the applicant presses **Submit application**, at which point the generated PDF and minimal submission metadata are sent to Resend for delivery to the grant inbox. No application database or permanent file store is used by this site.
