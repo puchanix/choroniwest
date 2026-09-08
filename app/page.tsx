@@ -93,7 +93,7 @@ export default function Home() {
         <h2>Ready to put the idea<br/>on paper?</h2>
         <p>Applications are due {grantConfig.deadline}. Decisions are expected by {grantConfig.decisionDate}.</p>
         <Link className="button primary" href="/apply">Start an application <span>→</span></Link>
-        <p style={{marginTop:24}}>Questions? <a className="text-link" href={`mailto:${grantConfig.contactEmail}`}>{grantConfig.contactEmail}</a></p>
+        <p style={{marginTop:24}}>Questions? <a className="text-link" style={{color:'var(--paper)'}} href={`mailto:${grantConfig.contactEmail}`}>{grantConfig.contactEmail}</a></p>
       </section>
 
       <footer className="shell footer"><strong>{grantConfig.name}</strong><span>For emerging artists & creative producers · <a href={`mailto:${grantConfig.contactEmail}`}>{grantConfig.contactEmail}</a></span></footer>
