@@ -15,7 +15,6 @@ type Application = {
   city: string;
   website: string;
   discipline: string;
-  referral: string;
   projectTitle: string;
   projectSummary: string;
   projectFormat: string;
@@ -27,12 +26,10 @@ type Application = {
   openRoles: string;
   grantRequest: string;
   otherFunding: string;
-  audience: string;
-  reachPlan: string;
-  growthImpact: string;
-  success: string;
-  risks: string;
-  extraLink: string;
+  audienceReach: string;
+  impactSuccess: string;
+  workSamples: string;
+  supportingLink: string;
   budget: BudgetItem[];
   timeline: TimelineItem[];
   certification: boolean;
@@ -40,24 +37,25 @@ type Application = {
 };
 
 const emptyApplication: Application = {
-  name: '', email: '', phone: '', city: '', website: '', discipline: '', referral: '',
+  name: '', email: '', phone: '', city: '', website: '', discipline: '',
   projectTitle: '', projectSummary: '', projectFormat: '', projectLocation: '',
   artisticVision: '', whyNow: '', applicantRole: '', collaborators: '', openRoles: '',
-  grantRequest: '', otherFunding: '', audience: '', reachPlan: '', growthImpact: '',
-  success: '', risks: '', extraLink: '', certification: false,
+  grantRequest: '', otherFunding: '', audienceReach: '', impactSuccess: '', workSamples: '',
+  supportingLink: '', certification: false,
   budget: [{ id: 'b1', label: '', amount: '' }],
   timeline: [{ id: 't1', date: '', milestone: '' }],
 };
 
 const sections = [
-  { id: 'applicant', label: 'You', title: 'About you' },
-  { id: 'project', label: 'Project', title: 'The project' },
-  { id: 'vision', label: 'Vision', title: 'Artistic vision' },
-  { id: 'team', label: 'Team', title: 'Your role & team' },
-  { id: 'budget', label: 'Budget', title: 'Budget' },
-  { id: 'timeline', label: 'Timeline', title: 'Timeline' },
-  { id: 'impact', label: 'Impact', title: 'Audience & impact' },
-  { id: 'review', label: 'Review', title: 'Review & submit' },
+  { id: 'applicant', label: 'You' },
+  { id: 'project', label: 'Project' },
+  { id: 'vision', label: 'Vision' },
+  { id: 'team', label: 'Team' },
+  { id: 'budget', label: 'Budget' },
+  { id: 'timeline', label: 'Timeline' },
+  { id: 'impact', label: 'Impact' },
+  { id: 'samples', label: 'Samples' },
+  { id: 'review', label: 'Review' },
 ] as const;
 
 type SectionId = typeof sections[number]['id'];
@@ -69,26 +67,15 @@ const requiredBySection: Record<SectionId, (keyof Application)[]> = {
   team: ['applicantRole'],
   budget: ['grantRequest'],
   timeline: [],
-  impact: ['growthImpact'],
+  impact: ['impactSuccess'],
+  samples: ['workSamples'],
   review: ['certification'],
 };
 
-function id(prefix: string) {
-  return `${prefix}${Math.random().toString(36).slice(2, 9)}`;
-}
-
-function money(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0);
-}
-
-function isFilled(value: unknown) {
-  if (typeof value === 'boolean') return value;
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function safeText(value: string) {
-  return value.trim() || '—';
-}
+function id(prefix: string) { return `${prefix}${Math.random().toString(36).slice(2, 9)}`; }
+function money(n: number) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0); }
+function isFilled(value: unknown) { if (typeof value === 'boolean') return value; return typeof value === 'string' && value.trim().length > 0; }
+function safeText(value: string) { return value.trim() || '—'; }
 
 function Field({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
   return <div className="field"><label>{label}{required && <span className="required"> *</span>}</label>{hint && <div className="hint">{hint}</div>}{children}</div>;
@@ -101,16 +88,18 @@ function TextArea({ value, onChange, rows = 4, max = 900, placeholder = '' }: { 
 export default function ApplyPage() {
   const [application, setApplication] = useState<Application>(emptyApplication);
   const [section, setSection] = useState<SectionId>('applicant');
-  const [savedAt, setSavedAt] = useState<string>('Draft saving automatically');
+  const [savedAt, setSavedAt] = useState('Draft saving automatically');
   const [hydrated, setHydrated] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('choroni-west-arts-grant-draft');
     if (stored) {
       try {
-        const parsed = JSON.parse(stored) as Application;
+        const parsed = JSON.parse(stored) as Partial<Application>;
         setApplication({ ...emptyApplication, ...parsed });
         if (parsed.submittedAt) setSubmitted(true);
       } catch {}
@@ -133,14 +122,10 @@ export default function ApplyPage() {
 
   const update = <K extends keyof Application>(key: K, value: Application[K]) => setApplication(prev => ({ ...prev, [key]: value }));
 
-  const sectionComplete = (id: SectionId) => {
-    if (id === 'budget') {
-      const hasRequest = !!application.grantRequest.trim();
-      const hasBudget = application.budget.some(row => row.label.trim() && Number(row.amount) > 0);
-      return hasRequest && hasBudget;
-    }
-    if (id === 'timeline') return application.timeline.some(row => row.date.trim() && row.milestone.trim());
-    const fields = requiredBySection[id];
+  const sectionComplete = (sectionId: SectionId) => {
+    if (sectionId === 'budget') return !!application.grantRequest.trim() && application.budget.some(r => r.label.trim() && Number(r.amount) > 0);
+    if (sectionId === 'timeline') return application.timeline.some(r => r.date.trim() && r.milestone.trim());
+    const fields = requiredBySection[sectionId];
     if (!fields.length) return true;
     return fields.every(key => isFilled(application[key]));
   };
@@ -154,10 +139,11 @@ export default function ApplyPage() {
   const otherFundingNum = Number(application.otherFunding) || 0;
   const grantRequestNum = Number(application.grantRequest) || 0;
   const fundingGap = Math.max(0, budgetTotal - otherFundingNum - grantRequestNum);
+  const amountOutOfRange = grantRequestNum > 0 && (grantRequestNum < grantConfig.minGrant || grantRequestNum > grantConfig.maxGrant);
 
-  const go = (id: SectionId) => {
-    setSection(id);
-    window.history.replaceState(null, '', `#${id}`);
+  const go = (nextSection: SectionId) => {
+    setSection(nextSection);
+    window.history.replaceState(null, '', `#${nextSection}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const currentIndex = sections.findIndex(s => s.id === section);
@@ -176,12 +162,14 @@ export default function ApplyPage() {
     if (!application.whyNow.trim()) items.push('Why now');
     if (!application.applicantRole.trim()) items.push('Your role');
     if (!application.grantRequest.trim()) items.push('Grant request');
+    if (amountOutOfRange) items.push(`Grant request must be between ${money(grantConfig.minGrant)} and ${money(grantConfig.maxGrant)}`);
     if (!application.budget.some(r => r.label.trim() && Number(r.amount) > 0)) items.push('At least one budget item');
     if (!application.timeline.some(r => r.date.trim() && r.milestone.trim())) items.push('At least one timeline milestone');
-    if (!application.growthImpact.trim()) items.push('Creative / professional impact');
+    if (!application.impactSuccess.trim()) items.push('Impact / success');
+    if (!application.workSamples.trim()) items.push('Work samples');
     if (!application.certification) items.push('Application certification');
     return items;
-  }, [application]);
+  }, [application, amountOutOfRange]);
 
   const addBudget = () => update('budget', [...application.budget, { id: id('b'), label: '', amount: '' }]);
   const setBudgetRow = (rowId: string, key: 'label'|'amount', value: string) => update('budget', application.budget.map(r => r.id === rowId ? { ...r, [key]: value } : r));
@@ -196,7 +184,6 @@ export default function ApplyPage() {
     const width = 504;
     let y = 58;
     const lineHeight = 14;
-
     const ensure = (needed = 70) => { if (y + needed > 735) { doc.addPage(); y = 58; } };
     const line = () => { doc.setDrawColor(210); doc.line(margin, y, margin + width, y); y += 18; };
     const heading = (text: string) => { ensure(50); doc.setFont('times', 'bold'); doc.setFontSize(17); doc.text(text, margin, y); y += 24; };
@@ -210,19 +197,16 @@ export default function ApplyPage() {
 
     doc.setFont('times', 'bold'); doc.setFontSize(25); doc.setTextColor(25); doc.text(grantConfig.name, margin, y); y += 25;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100); doc.text(`${grantConfig.year} Application · ${application.projectTitle || 'Untitled project'}`, margin, y); y += 24; line();
-
-    heading('Applicant');
-    item('Name', application.name); item('Email', application.email); item('Phone', application.phone); item('Location', application.city); item('Discipline', application.discipline); item('Website / portfolio', application.website); item('Referral', application.referral);
-    line(); heading('Project');
-    item('Project title', application.projectTitle); item('Overview', application.projectSummary); item('Format / discipline', application.projectFormat); item('Location', application.projectLocation);
-    line(); heading('Artistic vision'); item('What should the work feel like?', application.artisticVision); item('Why now?', application.whyNow);
+    heading('Applicant'); item('Name', application.name); item('Email', application.email); item('Phone', application.phone); item('Location', application.city); item('Discipline', application.discipline); item('Website / portfolio', application.website);
+    line(); heading('Project'); item('Project title', application.projectTitle); item('Overview', application.projectSummary); item('Format / discipline', application.projectFormat); item('Location', application.projectLocation);
+    line(); heading('Artistic vision'); item('Audience experience', application.artisticVision); item('Why now?', application.whyNow);
     line(); heading('Role & team'); item('Applicant role', application.applicantRole); item('Collaborators', application.collaborators); item('Roles still to fill', application.openRoles);
     line(); heading('Budget'); item('Grant requested', money(grantRequestNum)); item('Other funding', money(otherFundingNum));
     application.budget.forEach(r => { if (r.label.trim() || r.amount) item(r.label || 'Budget item', money(Number(r.amount) || 0)); });
     item('Total project budget', money(budgetTotal));
-    line(); heading('Timeline');
-    application.timeline.forEach(r => { if (r.date.trim() || r.milestone.trim()) item(r.date || 'Date TBD', r.milestone); });
-    line(); heading('Audience & impact'); item('Who is it for?', application.audience); item('How will people find it?', application.reachPlan); item('What could this unlock?', application.growthImpact); item('What would success look like?', application.success); item('Risks', application.risks); item('Optional link', application.extraLink);
+    line(); heading('Timeline'); application.timeline.forEach(r => { if (r.date.trim() || r.milestone.trim()) item(r.date || 'Date TBD', r.milestone); });
+    line(); heading('Audience & impact'); item('Audience & reach', application.audienceReach); item('Impact & success', application.impactSuccess);
+    line(); heading('Work samples'); item('Samples', application.workSamples); item('Supporting link', application.supportingLink);
     ensure(45); line(); doc.setFont('helvetica', 'italic'); doc.setFontSize(8.5); doc.setTextColor(100); doc.text(`Generated from the ${grantConfig.name} application portal.`, margin, y);
     return doc;
   };
@@ -233,33 +217,43 @@ export default function ApplyPage() {
     doc.save(`choroni-west-arts-grant-${slug}.pdf`);
   };
 
-  const shareApplication = async () => {
-    const doc = buildPdf();
-    const blob = doc.output('blob');
-    const filename = `Choroni-West-Arts-Grant-${(application.name || 'Application').replace(/[^a-z0-9]/gi, '-')}.pdf`;
-    const file = new File([blob], filename, { type: 'application/pdf' });
-    const subject = `Choroni West Arts Grant application — ${application.name || application.projectTitle}`;
-    const recipient = grantConfig.submissionEmails.join(',');
-    const body = `Attached is my ${grantConfig.year} Choroni West Arts Grant application for “${application.projectTitle || 'my project'}.”`;
-
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      try { await navigator.share({ title: subject, text: body, files: [file] }); return; } catch {}
+  const submit = async () => {
+    if (missing.length || submitting) return;
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      const doc = buildPdf();
+      const dataUri = doc.output('datauristring');
+      const pdfBase64 = dataUri.split(',')[1];
+      const filename = `Choroni-West-Arts-Grant-${(application.name || 'Application').replace(/[^a-z0-9]/gi, '-')}.pdf`;
+      const response = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicantName: application.name,
+          applicantEmail: application.email,
+          projectTitle: application.projectTitle,
+          grantRequest: grantRequestNum,
+          filename,
+          pdfBase64,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'The application could not be delivered.');
+      const nextApp = { ...application, submittedAt: new Date().toISOString() };
+      setApplication(nextApp);
+      localStorage.setItem('choroni-west-arts-grant-draft', JSON.stringify(nextApp));
+      setSubmitted(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'The application could not be delivered. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-    downloadPdf();
-    window.location.href = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`${body}\n\nThe PDF has been downloaded to my device so I can attach it to this email.`)}`;
-  };
-
-  const submit = () => {
-    if (missing.length) return;
-    const nextApp = { ...application, submittedAt: new Date().toISOString() };
-    setApplication(nextApp);
-    localStorage.setItem('choroni-west-arts-grant-draft', JSON.stringify(nextApp));
-    setSubmitted(true);
   };
 
   const renderSection = () => {
     if (submitted && section === 'review') {
-      return <div className="success-card"><div className="success-mark">✦</div><h2>Application ready.</h2><p>Your application has been finalized on this device. Send or save the PDF below.</p><div className="success-actions"><button className="button primary" onClick={shareApplication}>Email / share application</button><button className="button secondary" onClick={downloadPdf}>Download PDF</button></div>{grantConfig.submissionEmails.length === 0 && <div className="soft-note" style={{textAlign:'left',marginTop:28}}>This preview does not yet contain submission email addresses. Add them in <code>lib/config.ts</code> before launch; the share button already works independently.</div>}</div>;
+      return <div className="success-card"><div className="success-mark">✦</div><h2>Application submitted.</h2><p>Your completed application has been delivered to <strong>{grantConfig.submissionEmail}</strong>.</p><div className="success-actions"><button className="button secondary" onClick={downloadPdf}>Download your PDF copy</button></div><p style={{marginTop:24}}>Questions? <a href={`mailto:${grantConfig.contactEmail}`}>{grantConfig.contactEmail}</a></p></div>;
     }
 
     switch (section) {
@@ -269,7 +263,6 @@ export default function ApplyPage() {
         <div className="row2"><Field label="Email" required><input type="email" value={application.email} onChange={e=>update('email',e.target.value)} autoComplete="email"/></Field><Field label="Phone"><input value={application.phone} onChange={e=>update('phone',e.target.value)} autoComplete="tel"/></Field></div>
         <div className="row2"><Field label="City / location" required><input value={application.city} onChange={e=>update('city',e.target.value)}/></Field><Field label="Primary discipline" required hint="For example: theater, film, music, dance, visual art, writing, multidisciplinary."><input value={application.discipline} onChange={e=>update('discipline',e.target.value)}/></Field></div>
         <Field label="Website, portfolio, reel, or profile"><input value={application.website} onChange={e=>update('website',e.target.value)} placeholder="Optional link"/></Field>
-        <Field label="How are you connected to the Choroni West community?" hint="A name or one sentence is enough."><input value={application.referral} onChange={e=>update('referral',e.target.value)}/></Field>
       </>;
       case 'project': return <>
         <span className="section-no">02</span><h1>The project</h1><p className="section-intro">What do you want to make? It can be a production, performance, exhibition, recording, film, workshop, new work, or something we have not anticipated.</p>
@@ -290,35 +283,40 @@ export default function ApplyPage() {
         <Field label="What roles or collaborators do you still need?" hint="Optional."><TextArea value={application.openRoles} onChange={v=>update('openRoles',v)} rows={3} max={500}/></Field>
       </>;
       case 'budget': return <>
-        <span className="section-no">05</span><h1>Budget</h1><p className="section-intro">Use realistic estimates, not false precision. A grant may cover up to 100% of a project’s costs. Choroni West may fund a proposal in full or in part.</p>
-        <div className="row2"><Field label="Grant amount requested" required><input type="number" min="0" step="100" value={application.grantRequest} onChange={e=>update('grantRequest',e.target.value)} placeholder="0"/></Field><Field label="Other confirmed / expected funding"><input type="number" min="0" step="100" value={application.otherFunding} onChange={e=>update('otherFunding',e.target.value)} placeholder="0"/></Field></div>
-        <Field label="What will the money pay for?" required hint="Add only the categories that matter. Rough estimates are fine."><div className="budget-list">{application.budget.map(row=><div className="budget-row" key={row.id}><input aria-label="Budget item" placeholder="e.g. Venue rental" value={row.label} onChange={e=>setBudgetRow(row.id,'label',e.target.value)}/><input aria-label="Amount" type="number" min="0" step="50" placeholder="$" value={row.amount} onChange={e=>setBudgetRow(row.id,'amount',e.target.value)}/><button className="icon-btn" aria-label="Remove budget row" onClick={()=>removeBudget(row.id)} disabled={application.budget.length===1}>×</button></div>)}</div><button className="add-row" onClick={addBudget}>+ Add budget item</button></Field>
+        <span className="section-no">05</span><h1>Budget</h1><p className="section-intro">Use realistic estimates, not false precision. Grants range from {money(grantConfig.minGrant)} to {money(grantConfig.maxGrant)}. A grant may cover up to 100% of a project’s costs, including reasonable compensation for your own work.</p>
+        <div className="row2"><Field label="Grant amount requested" required hint={`${money(grantConfig.minGrant)}–${money(grantConfig.maxGrant)}`}><input type="number" min={grantConfig.minGrant} max={grantConfig.maxGrant} step="100" value={application.grantRequest} onChange={e=>update('grantRequest',e.target.value)} placeholder="0"/></Field><Field label="Other confirmed / expected funding"><input type="number" min="0" step="100" value={application.otherFunding} onChange={e=>update('otherFunding',e.target.value)} placeholder="0"/></Field></div>
+        {amountOutOfRange && <div className="missing-box">Please request between {money(grantConfig.minGrant)} and {money(grantConfig.maxGrant)}.</div>}
+        <Field label="What will the money pay for?" required hint="Include your own labor if you plan to pay yourself. Add only the categories that matter; rough estimates are fine."><div className="budget-list">{application.budget.map(row=><div className="budget-row" key={row.id}><input aria-label="Budget item" placeholder="e.g. Rehearsal space / my producing fee" value={row.label} onChange={e=>setBudgetRow(row.id,'label',e.target.value)}/><input aria-label="Amount" type="number" min="0" step="50" placeholder="$" value={row.amount} onChange={e=>setBudgetRow(row.id,'amount',e.target.value)}/><button className="icon-btn" aria-label="Remove budget row" onClick={()=>removeBudget(row.id)} disabled={application.budget.length===1}>×</button></div>)}</div><button className="add-row" onClick={addBudget}>+ Add budget item</button></Field>
         <div className="budget-summary"><div><span>Total project budget</span><strong>{money(budgetTotal)}</strong></div><div><span>Grant requested</span><strong>{money(grantRequestNum)}</strong></div><div><span>Other funding</span><strong>{money(otherFundingNum)}</strong></div><div className="total"><span>Unfunded gap</span><strong>{money(fundingGap)}</strong></div></div>
       </>;
       case 'timeline': return <>
-        <span className="section-no">06</span><h1>Timeline</h1><p className="section-intro">A handful of milestones is enough. We are looking for evidence that you have thought about the path from “idea” to “happening.”</p>
+        <span className="section-no">06</span><h1>Timeline</h1><p className="section-intro">A handful of milestones is enough. Projects already underway are welcome; include what has happened and what comes next.</p>
         <Field label="Key milestones" required hint="Dates can be approximate: “October,” “Winter 2027,” etc."><div className="timeline-list">{application.timeline.map(row=><div className="timeline-row" key={row.id}><input aria-label="Date" placeholder="When" value={row.date} onChange={e=>setTimelineRow(row.id,'date',e.target.value)}/><input aria-label="Milestone" placeholder="What happens" value={row.milestone} onChange={e=>setTimelineRow(row.id,'milestone',e.target.value)}/><button className="icon-btn" aria-label="Remove timeline row" onClick={()=>removeTimeline(row.id)} disabled={application.timeline.length===1}>×</button></div>)}</div><button className="add-row" onClick={addTimeline}>+ Add milestone</button></Field>
       </>;
       case 'impact': return <>
-        <span className="section-no">07</span><h1>Audience & impact</h1><p className="section-intro">We care about the audience, but this does not need to be a giant audience. We also care about what making the work could unlock for you.</p>
-        <Field label="Who do you hope experiences the work?" hint="Optional, and “people who love weird intimate theater” is a valid kind of answer."><TextArea value={application.audience} onChange={v=>update('audience',v)} rows={3} max={500}/></Field>
-        <Field label="How might those people find it?" hint="A simple plan is fine."><TextArea value={application.reachPlan} onChange={v=>update('reachPlan',v)} rows={3} max={500}/></Field>
-        <Field label="What could completing this project unlock for you?" required hint="Think about craft, confidence, collaborators, career momentum, a body of work, or something else."><TextArea value={application.growthImpact} onChange={v=>update('growthImpact',v)} max={700}/></Field>
-        <Field label="What would make you feel the project was successful?" hint="Ticket sales can be part of the answer, but they do not need to be."><TextArea value={application.success} onChange={v=>update('success',v)} rows={3} max={500}/></Field>
-        <Field label="What are the biggest things that could get in the way?" hint="One or two risks + how you would handle them is enough."><TextArea value={application.risks} onChange={v=>update('risks',v)} rows={3} max={500}/></Field>
-        <Field label="Anything you'd like us to see?"><input value={application.extraLink} onChange={e=>update('extraLink',e.target.value)} placeholder="Optional link to work sample, mood board, script, deck, etc."/></Field>
+        <span className="section-no">07</span><h1>Audience & impact</h1><p className="section-intro">Two questions, short answers. We care about who the work reaches and what making it could change for you.</p>
+        <Field label="Who do you hope experiences the work, and how might they find it?" hint="A few sentences is enough. A small, specific audience is completely valid."><TextArea value={application.audienceReach} onChange={v=>update('audienceReach',v)} rows={4} max={650}/></Field>
+        <Field label="What could completing this project unlock, and what would make it feel successful?" required hint="Think craft, confidence, collaborators, career momentum, a body of work, audience response, or something else."><TextArea value={application.impactSuccess} onChange={v=>update('impactSuccess',v)} rows={4} max={750}/></Field>
+      </>;
+      case 'samples': return <>
+        <span className="section-no">08</span><h1>Work samples</h1><p className="section-intro">This is useful beyond this application. Give us a quick way to see your work without building a special submission package.</p>
+        <Field label="Work sample links" required hint="Share two to three links when possible, under five minutes total. For longer videos, include the timestamped section you want us to watch. YouTube, Vimeo, Drive, Dropbox, portfolio pages, or similar links are fine. If you truly do not have a relevant sample yet, briefly say why and share the closest example of your work."><TextArea value={application.workSamples} onChange={v=>update('workSamples',v)} rows={5} max={1200} placeholder={'1. https://… — watch 01:20–02:45\n2. https://… — full clip, 1:10'}/></Field>
+        <Field label="Optional supporting material" hint="Script excerpt, mood board, deck, writing sample, project page, etc."><input value={application.supportingLink} onChange={e=>update('supportingLink',e.target.value)} placeholder="Optional URL"/></Field>
       </>;
       case 'review': return <>
-        <span className="section-no">08</span><h1>Review & submit</h1><p className="section-intro">Read it once. Fix anything that does not feel like you. Then you are done.</p>
+        <span className="section-no">09</span><h1>Review & submit</h1><p className="section-intro">Read it once. Fix anything that does not feel like you. Then submit; the PDF is delivered automatically.</p>
         {missing.length > 0 && <div className="missing-box"><strong>{missing.length} item{missing.length===1?'':'s'} still needed:</strong> {missing.join(' · ')}</div>}
         <Review title="Applicant" items={[['Name',application.name],['Email',application.email],['Location',application.city],['Discipline',application.discipline],['Portfolio',application.website]]}/>
         <Review title="Project" items={[['Title',application.projectTitle],['Overview',application.projectSummary],['Format',application.projectFormat],['Location',application.projectLocation]]}/>
         <Review title="Vision" items={[['Audience experience',application.artisticVision],['Why now',application.whyNow]]}/>
         <Review title="Team" items={[['Your role',application.applicantRole],['Collaborators',application.collaborators],['Open roles',application.openRoles]]}/>
         <Review title="Budget" items={[['Grant requested',money(grantRequestNum)],['Project budget',money(budgetTotal)],['Other funding',money(otherFundingNum)]]}/>
-        <Review title="Impact" items={[['Audience',application.audience],['Reach plan',application.reachPlan],['What this unlocks',application.growthImpact],['Success',application.success],['Risks',application.risks]]}/>
+        <Review title="Impact" items={[['Audience & reach',application.audienceReach],['Impact & success',application.impactSuccess]]}/>
+        <Review title="Work samples" items={[['Samples',application.workSamples],['Supporting material',application.supportingLink]]}/>
+        <div className="soft-note"><strong>If funded:</strong> you’ll receive written award/payment details, keep basic records for major expenses, complete one short mid-project check-in, and send a brief final report. If the project changes materially or falls through, contact us before redirecting the funds.</div>
         <div className="field"><label style={{display:'flex',gap:10,alignItems:'flex-start',fontWeight:650,lineHeight:1.5}}><input type="checkbox" style={{width:18,marginTop:3}} checked={application.certification} onChange={e=>update('certification',e.target.checked)}/><span>I confirm that this application accurately represents the project I want to pursue and the information is true to the best of my knowledge.</span></label></div>
-        <button className="button primary" disabled={missing.length>0} onClick={submit} style={{opacity:missing.length?0.45:1,cursor:missing.length?'not-allowed':'pointer'}}>Finalize application <span>→</span></button>
+        {submitError && <div className="missing-box"><strong>Submission problem:</strong> {submitError} You can also contact <a href={`mailto:${grantConfig.contactEmail}`}>{grantConfig.contactEmail}</a>.</div>}
+        <button className="button primary" disabled={missing.length>0 || submitting} onClick={submit} style={{opacity:(missing.length||submitting)?0.45:1,cursor:(missing.length||submitting)?'not-allowed':'pointer'}}>{submitting ? 'Submitting…' : 'Submit application'} <span>→</span></button>
       </>;
     }
   };
@@ -328,7 +326,7 @@ export default function ApplyPage() {
       <Link className="brand" href="/">Choroni West<br/>Arts Grant</Link>
       <div className="app-progress"><div className="progress-meta"><span>{percent}% complete</span><span>{remaining ? `${remaining} remaining` : 'Ready to review'}</span></div><div className="progress-track"><div className="progress-fill" style={{width:`${percent}%`}}/></div></div>
       <nav className="steps" aria-label="Application sections">{sections.map((s,i)=><button key={s.id} className={`step-btn ${s.id===section?'active':''} ${sectionComplete(s.id)?'complete':''}`} onClick={()=>go(s.id)}><span className="n">{String(i+1).padStart(2,'0')}</span><span>{s.label}</span><span className="state"/></button>)}</nav>
-      <div className="save-status">{savedAt}</div>
+      <div className="save-status">{savedAt}<br/><a href={`mailto:${grantConfig.contactEmail}`}>Questions? {grantConfig.contactEmail}</a></div>
     </aside>
     <div className="app-main">
       <div className="app-top"><Link href="/">← Grant overview</Link></div>
