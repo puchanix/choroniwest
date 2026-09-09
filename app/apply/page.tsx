@@ -22,13 +22,18 @@ type Application = {
   artisticVision: string;
   whyNow: string;
   applicantRole: string;
+  whyYou: string;
   collaborators: string;
   openRoles: string;
+  projectStatus: string;
+  projectRisks: string;
   grantRequest: string;
   otherFunding: string;
+  fundingPriorities: string;
   audienceReach: string;
   impactSuccess: string;
   workSamples: string;
+  sampleNotes: string;
   supportingLink: string;
   budget: BudgetItem[];
   timeline: TimelineItem[];
@@ -39,36 +44,36 @@ type Application = {
 const emptyApplication: Application = {
   name: '', email: '', phone: '', city: '', website: '', discipline: '',
   projectTitle: '', projectSummary: '', projectFormat: '', projectLocation: '',
-  artisticVision: '', whyNow: '', applicantRole: '', collaborators: '', openRoles: '',
-  grantRequest: '', otherFunding: '', audienceReach: '', impactSuccess: '', workSamples: '',
-  supportingLink: '', certification: false,
+  artisticVision: '', whyNow: '', applicantRole: '', whyYou: '', collaborators: '', openRoles: '',
+  projectStatus: '', projectRisks: '', grantRequest: '', otherFunding: '', fundingPriorities: '',
+  audienceReach: '', impactSuccess: '', workSamples: '', sampleNotes: '', supportingLink: '', certification: false,
   budget: [{ id: 'b1', label: '', amount: '' }],
   timeline: [{ id: 't1', date: '', milestone: '' }],
 };
 
 const sections = [
-  { id: 'applicant', label: 'You' },
-  { id: 'project', label: 'Project' },
-  { id: 'vision', label: 'Vision' },
-  { id: 'team', label: 'Team' },
-  { id: 'budget', label: 'Budget' },
-  { id: 'timeline', label: 'Timeline' },
-  { id: 'impact', label: 'Impact' },
-  { id: 'samples', label: 'Samples' },
-  { id: 'review', label: 'Review' },
+  { id: 'applicant', label: 'You', group: 'The idea' },
+  { id: 'project', label: 'Project', group: 'The idea' },
+  { id: 'vision', label: 'Vision', group: 'The idea' },
+  { id: 'team', label: 'You & team', group: 'The idea' },
+  { id: 'timeline', label: 'Making it real', group: 'The plan' },
+  { id: 'budget', label: 'Budget', group: 'The plan' },
+  { id: 'impact', label: 'Audience & success', group: 'Finish' },
+  { id: 'samples', label: 'Work samples', group: 'Finish' },
+  { id: 'review', label: 'Review', group: 'Finish' },
 ] as const;
 
 type SectionId = typeof sections[number]['id'];
 
 const requiredBySection: Record<SectionId, (keyof Application)[]> = {
-  applicant: ['name', 'email', 'city', 'discipline'],
+  applicant: ['name', 'email'],
   project: ['projectTitle', 'projectSummary'],
-  vision: ['artisticVision', 'whyNow'],
-  team: ['applicantRole'],
-  budget: ['grantRequest'],
+  vision: ['artisticVision'],
+  team: ['whyYou'],
   timeline: [],
-  impact: ['impactSuccess'],
-  samples: ['workSamples'],
+  budget: ['grantRequest'],
+  impact: [],
+  samples: [],
   review: ['certification'],
 };
 
@@ -154,19 +159,14 @@ export default function ApplyPage() {
     const items: string[] = [];
     if (!application.name.trim()) items.push('Your name');
     if (!application.email.trim()) items.push('Email');
-    if (!application.city.trim()) items.push('City / location');
-    if (!application.discipline.trim()) items.push('Primary discipline');
     if (!application.projectTitle.trim()) items.push('Project title');
     if (!application.projectSummary.trim()) items.push('Project overview');
-    if (!application.artisticVision.trim()) items.push('Artistic vision');
-    if (!application.whyNow.trim()) items.push('Why now');
-    if (!application.applicantRole.trim()) items.push('Your role');
+    if (!application.artisticVision.trim()) items.push('What excites you about the work');
+    if (!application.whyYou.trim()) items.push('Why you are the person to make this');
     if (!application.grantRequest.trim()) items.push('Grant request');
     if (amountOutOfRange) items.push(`Grant request must be between ${money(grantConfig.minGrant)} and ${money(grantConfig.maxGrant)}`);
     if (!application.budget.some(r => r.label.trim() && Number(r.amount) > 0)) items.push('At least one budget item');
-    if (!application.timeline.some(r => r.date.trim() && r.milestone.trim())) items.push('At least one timeline milestone');
-    if (!application.impactSuccess.trim()) items.push('Impact / success');
-    if (!application.workSamples.trim()) items.push('Work samples');
+    if (!application.timeline.some(r => r.date.trim() && r.milestone.trim())) items.push('At least one project milestone');
     if (!application.certification) items.push('Application certification');
     return items;
   }, [application, amountOutOfRange]);
@@ -199,14 +199,12 @@ export default function ApplyPage() {
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100); doc.text(`${grantConfig.year} Application · ${application.projectTitle || 'Untitled project'}`, margin, y); y += 24; line();
     heading('Applicant'); item('Name', application.name); item('Email', application.email); item('Phone', application.phone); item('Location', application.city); item('Discipline', application.discipline); item('Website / portfolio', application.website);
     line(); heading('Project'); item('Project title', application.projectTitle); item('Overview', application.projectSummary); item('Format / discipline', application.projectFormat); item('Location', application.projectLocation);
-    line(); heading('Artistic vision'); item('Audience experience', application.artisticVision); item('Why now?', application.whyNow);
-    line(); heading('Role & team'); item('Applicant role', application.applicantRole); item('Collaborators', application.collaborators); item('Roles still to fill', application.openRoles);
-    line(); heading('Budget'); item('Grant requested', money(grantRequestNum)); item('Other funding', money(otherFundingNum));
-    application.budget.forEach(r => { if (r.label.trim() || r.amount) item(r.label || 'Budget item', money(Number(r.amount) || 0)); });
-    item('Total project budget', money(budgetTotal));
-    line(); heading('Timeline'); application.timeline.forEach(r => { if (r.date.trim() || r.milestone.trim()) item(r.date || 'Date TBD', r.milestone); });
-    line(); heading('Audience & impact'); item('Audience & reach', application.audienceReach); item('Impact & success', application.impactSuccess);
-    line(); heading('Work samples'); item('Samples', application.workSamples); item('Supporting link', application.supportingLink);
+    line(); heading('Artistic vision'); item('What excites you about the work?', application.artisticVision); item('Why now?', application.whyNow);
+    line(); heading('You & team'); item('Your role', application.applicantRole); item('Why are you the person to make this?', application.whyYou); item('Collaborators', application.collaborators); item('Roles still to fill', application.openRoles);
+    line(); heading('Making it real'); item('Where the project stands', application.projectStatus); application.timeline.forEach(r => { if (r.date.trim() || r.milestone.trim()) item(r.date || 'Date TBD', r.milestone); }); item('Hardest / most uncertain', application.projectRisks);
+    line(); heading('Budget'); item('Grant requested', money(grantRequestNum)); item('Other funding', money(otherFundingNum)); application.budget.forEach(r => { if (r.label.trim() || r.amount) item(r.label || 'Budget item', money(Number(r.amount) || 0)); }); item('Total project budget', money(budgetTotal)); item('If funded below request', application.fundingPriorities);
+    line(); heading('Audience & success'); item('Audience & reach', application.audienceReach); item('Impact & success', application.impactSuccess);
+    line(); heading('Work samples'); item('Samples', application.workSamples); item('A line about each sample', application.sampleNotes); item('Supporting link', application.supportingLink);
     ensure(45); line(); doc.setFont('helvetica', 'italic'); doc.setFontSize(8.5); doc.setTextColor(100); doc.text(`Generated from the ${grantConfig.name} application portal.`, margin, y);
     return doc;
   };
@@ -227,16 +225,8 @@ export default function ApplyPage() {
       const pdfBase64 = dataUri.split(',')[1];
       const filename = `Choroni-West-Arts-Grant-${(application.name || 'Application').replace(/[^a-z0-9]/gi, '-')}.pdf`;
       const response = await fetch('/api/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          applicantName: application.name,
-          applicantEmail: application.email,
-          projectTitle: application.projectTitle,
-          grantRequest: grantRequestNum,
-          filename,
-          pdfBase64,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicantName: application.name, applicantEmail: application.email, projectTitle: application.projectTitle, grantRequest: grantRequestNum, filename, pdfBase64 }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'The application could not be delivered.');
@@ -246,94 +236,28 @@ export default function ApplyPage() {
       setSubmitted(true);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'The application could not be delivered. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
   const renderSection = () => {
-    if (submitted && section === 'review') {
-      return <div className="success-card"><div className="success-mark">✦</div><h2>Application submitted.</h2><p>Your completed application has been delivered to <strong>{grantConfig.submissionEmail}</strong>.</p><div className="success-actions"><button className="button secondary" onClick={downloadPdf}>Download your PDF copy</button></div><p style={{marginTop:24}}>Questions? <a href={`mailto:${grantConfig.contactEmail}`}>{grantConfig.contactEmail}</a></p></div>;
-    }
+    if (submitted && section === 'review') return <div className="success-card"><div className="success-mark">✦</div><h2>Application submitted.</h2><p>Your completed application has been delivered to <strong>{grantConfig.submissionEmail}</strong>, and a copy was sent to <strong>{application.email}</strong>.</p><div className="success-actions"><button className="button secondary" onClick={downloadPdf}>Download your PDF copy</button></div><p style={{marginTop:24}}>Questions? <a href={`mailto:${grantConfig.contactEmail}`}>{grantConfig.contactEmail}</a></p></div>;
 
     switch (section) {
-      case 'applicant': return <>
-        <span className="section-no">01</span><h1>About you</h1><p className="section-intro">Just enough context to know who you are. No formal artist statement or CV required.</p>
-        <Field label="Name" required><input value={application.name} onChange={e=>update('name',e.target.value)} autoComplete="name"/></Field>
-        <div className="row2"><Field label="Email" required><input type="email" value={application.email} onChange={e=>update('email',e.target.value)} autoComplete="email"/></Field><Field label="Phone"><input value={application.phone} onChange={e=>update('phone',e.target.value)} autoComplete="tel"/></Field></div>
-        <div className="row2"><Field label="City / location" required><input value={application.city} onChange={e=>update('city',e.target.value)}/></Field><Field label="Primary discipline" required hint="For example: theater, film, music, dance, visual art, writing, multidisciplinary."><input value={application.discipline} onChange={e=>update('discipline',e.target.value)}/></Field></div>
-        <Field label="Website, portfolio, reel, or profile"><input value={application.website} onChange={e=>update('website',e.target.value)} placeholder="Optional link"/></Field>
-      </>;
-      case 'project': return <>
-        <span className="section-no">02</span><h1>The project</h1><p className="section-intro">What do you want to make? It can be a production, performance, exhibition, recording, film, workshop, new work, or something we have not anticipated.</p>
-        <Field label="Working title" required><input value={application.projectTitle} onChange={e=>update('projectTitle',e.target.value)} placeholder="A working title is perfectly fine"/></Field>
-        <Field label="Give us the 30-second version" required hint="What are you making? What form will it take? What would actually happen?"><TextArea value={application.projectSummary} onChange={v=>update('projectSummary',v)} max={700} placeholder="A few sentences is plenty."/></Field>
-        <div className="row2"><Field label="Format / discipline"><input value={application.projectFormat} onChange={e=>update('projectFormat',e.target.value)} placeholder="e.g. 3-night play, short film, EP"/></Field><Field label="Where will it happen?"><input value={application.projectLocation} onChange={e=>update('projectLocation',e.target.value)} placeholder="City, venue, online, TBD…"/></Field></div>
-      </>;
-      case 'vision': return <>
-        <span className="section-no">03</span><h1>Artistic vision</h1><p className="section-intro">This is not a writing contest. Tell us what excites you about the work in language you would actually use with another artist.</p>
-        <div className="soft-note"><strong>Keep it human.</strong> Short answers are welcome. AI can help you organize or edit, but the ideas should still sound and feel like yours.</div>
-        <Field label="What do you want the audience to experience?" required hint="What is distinctive about the idea, interpretation, story, sound, look, or approach?"><TextArea value={application.artisticVision} onChange={v=>update('artisticVision',v)} max={900}/></Field>
-        <Field label="Why this project, and why now?" required><TextArea value={application.whyNow} onChange={v=>update('whyNow',v)} max={700}/></Field>
-      </>;
-      case 'team': return <>
-        <span className="section-no">04</span><h1>Your role & team</h1><p className="section-intro">Projects can begin before every collaborator is confirmed. Tell us what you know today.</p>
-        <Field label="What will your role be?" required hint="Actor, director, producer, writer, musician, designer, several roles, etc."><input value={application.applicantRole} onChange={e=>update('applicantRole',e.target.value)}/></Field>
-        <Field label="Who else is already involved?" hint="Names + roles are enough. If nobody yet, say so."><TextArea value={application.collaborators} onChange={v=>update('collaborators',v)} rows={3} max={600}/></Field>
-        <Field label="What roles or collaborators do you still need?" hint="Optional."><TextArea value={application.openRoles} onChange={v=>update('openRoles',v)} rows={3} max={500}/></Field>
-      </>;
-      case 'budget': return <>
-        <span className="section-no">05</span><h1>Budget</h1><p className="section-intro">Use realistic estimates, not false precision. Grants range from {money(grantConfig.minGrant)} to {money(grantConfig.maxGrant)}. A grant may cover up to 100% of a project’s costs, including reasonable compensation for your own work.</p>
-        <div className="row2"><Field label="Grant amount requested" required hint={`${money(grantConfig.minGrant)}–${money(grantConfig.maxGrant)}`}><input type="number" min={grantConfig.minGrant} max={grantConfig.maxGrant} step="100" value={application.grantRequest} onChange={e=>update('grantRequest',e.target.value)} placeholder="0"/></Field><Field label="Other confirmed / expected funding"><input type="number" min="0" step="100" value={application.otherFunding} onChange={e=>update('otherFunding',e.target.value)} placeholder="0"/></Field></div>
-        {amountOutOfRange && <div className="missing-box">Please request between {money(grantConfig.minGrant)} and {money(grantConfig.maxGrant)}.</div>}
-        <Field label="What will the money pay for?" required hint="Include your own labor if you plan to pay yourself. Add only the categories that matter; rough estimates are fine."><div className="budget-list">{application.budget.map(row=><div className="budget-row" key={row.id}><input aria-label="Budget item" placeholder="e.g. Rehearsal space / my producing fee" value={row.label} onChange={e=>setBudgetRow(row.id,'label',e.target.value)}/><input aria-label="Amount" type="number" min="0" step="50" placeholder="$" value={row.amount} onChange={e=>setBudgetRow(row.id,'amount',e.target.value)}/><button className="icon-btn" aria-label="Remove budget row" onClick={()=>removeBudget(row.id)} disabled={application.budget.length===1}>×</button></div>)}</div><button className="add-row" onClick={addBudget}>+ Add budget item</button></Field>
-        <div className="budget-summary"><div><span>Total project budget</span><strong>{money(budgetTotal)}</strong></div><div><span>Grant requested</span><strong>{money(grantRequestNum)}</strong></div><div><span>Other funding</span><strong>{money(otherFundingNum)}</strong></div><div className="total"><span>Unfunded gap</span><strong>{money(fundingGap)}</strong></div></div>
-      </>;
-      case 'timeline': return <>
-        <span className="section-no">06</span><h1>Timeline</h1><p className="section-intro">A handful of milestones is enough. Projects already underway are welcome; include what has happened and what comes next.</p>
-        <Field label="Key milestones" required hint="Dates can be approximate: “October,” “Winter 2027,” etc."><div className="timeline-list">{application.timeline.map(row=><div className="timeline-row" key={row.id}><input aria-label="Date" placeholder="When" value={row.date} onChange={e=>setTimelineRow(row.id,'date',e.target.value)}/><input aria-label="Milestone" placeholder="What happens" value={row.milestone} onChange={e=>setTimelineRow(row.id,'milestone',e.target.value)}/><button className="icon-btn" aria-label="Remove timeline row" onClick={()=>removeTimeline(row.id)} disabled={application.timeline.length===1}>×</button></div>)}</div><button className="add-row" onClick={addTimeline}>+ Add milestone</button></Field>
-      </>;
-      case 'impact': return <>
-        <span className="section-no">07</span><h1>Audience & impact</h1><p className="section-intro">Two questions, short answers. We care about who the work reaches and what making it could change for you.</p>
-        <Field label="Who do you hope experiences the work, and how might they find it?" hint="A few sentences is enough. A small, specific audience is completely valid."><TextArea value={application.audienceReach} onChange={v=>update('audienceReach',v)} rows={4} max={650}/></Field>
-        <Field label="What could completing this project unlock, and what would make it feel successful?" required hint="Think craft, confidence, collaborators, career momentum, a body of work, audience response, or something else."><TextArea value={application.impactSuccess} onChange={v=>update('impactSuccess',v)} rows={4} max={750}/></Field>
-      </>;
-      case 'samples': return <>
-        <span className="section-no">08</span><h1>Work samples</h1><p className="section-intro">This is useful beyond this application. Give us a quick way to see your work without building a special submission package.</p>
-        <Field label="Work sample links" required hint="Share two to three links when possible, under five minutes total. For longer videos, include the timestamped section you want us to watch. YouTube, Vimeo, Drive, Dropbox, portfolio pages, or similar links are fine. If you truly do not have a relevant sample yet, briefly say why and share the closest example of your work."><TextArea value={application.workSamples} onChange={v=>update('workSamples',v)} rows={5} max={1200} placeholder={'1. https://… — watch 01:20–02:45\n2. https://… — full clip, 1:10'}/></Field>
-        <Field label="Optional supporting material" hint="Script excerpt, mood board, deck, writing sample, project page, etc."><input value={application.supportingLink} onChange={e=>update('supportingLink',e.target.value)} placeholder="Optional URL"/></Field>
-      </>;
-      case 'review': return <>
-        <span className="section-no">09</span><h1>Review & submit</h1><p className="section-intro">Read it once. Fix anything that does not feel like you. Then submit; the PDF is delivered automatically.</p>
-        {missing.length > 0 && <div className="missing-box"><strong>{missing.length} item{missing.length===1?'':'s'} still needed:</strong> {missing.join(' · ')}</div>}
-        <Review title="Applicant" items={[['Name',application.name],['Email',application.email],['Location',application.city],['Discipline',application.discipline],['Portfolio',application.website]]}/>
-        <Review title="Project" items={[['Title',application.projectTitle],['Overview',application.projectSummary],['Format',application.projectFormat],['Location',application.projectLocation]]}/>
-        <Review title="Vision" items={[['Audience experience',application.artisticVision],['Why now',application.whyNow]]}/>
-        <Review title="Team" items={[['Your role',application.applicantRole],['Collaborators',application.collaborators],['Open roles',application.openRoles]]}/>
-        <Review title="Budget" items={[['Grant requested',money(grantRequestNum)],['Project budget',money(budgetTotal)],['Other funding',money(otherFundingNum)]]}/>
-        <Review title="Impact" items={[['Audience & reach',application.audienceReach],['Impact & success',application.impactSuccess]]}/>
-        <Review title="Work samples" items={[['Samples',application.workSamples],['Supporting material',application.supportingLink]]}/>
-        <div className="soft-note"><strong>If funded:</strong> you’ll receive written award/payment details, keep basic records for major expenses, complete one short mid-project check-in, and send a brief final report. If the project changes materially or falls through, contact us before redirecting the funds.</div>
-        <div className="field"><label style={{display:'flex',gap:10,alignItems:'flex-start',fontWeight:650,lineHeight:1.5}}><input type="checkbox" style={{width:18,marginTop:3}} checked={application.certification} onChange={e=>update('certification',e.target.checked)}/><span>I confirm that this application accurately represents the project I want to pursue and the information is true to the best of my knowledge.</span></label></div>
-        {submitError && <div className="missing-box"><strong>Submission problem:</strong> {submitError} You can also contact <a href={`mailto:${grantConfig.contactEmail}`}>{grantConfig.contactEmail}</a>.</div>}
-        <button className="button primary" disabled={missing.length>0 || submitting} onClick={submit} style={{opacity:(missing.length||submitting)?0.45:1,cursor:(missing.length||submitting)?'not-allowed':'pointer'}}>{submitting ? 'Submitting…' : 'Submit application'} <span>→</span></button>
-      </>;
+      case 'applicant': return <><span className="section-no">01</span><h1>About you</h1><p className="section-intro">Just enough context to know who you are. No formal artist statement or CV required.</p><Field label="Name" required><input value={application.name} onChange={e=>update('name',e.target.value)} autoComplete="name"/></Field><div className="row2"><Field label="Email" required><input type="email" value={application.email} onChange={e=>update('email',e.target.value)} autoComplete="email"/></Field><Field label="Phone"><input value={application.phone} onChange={e=>update('phone',e.target.value)} autoComplete="tel"/></Field></div><div className="row2"><Field label="City / location"><input value={application.city} onChange={e=>update('city',e.target.value)}/></Field><Field label="Primary discipline" hint="For example: theater, film, music, dance, visual art, writing, multidisciplinary."><input value={application.discipline} onChange={e=>update('discipline',e.target.value)}/></Field></div><Field label="Website, portfolio, reel, or profile"><input value={application.website} onChange={e=>update('website',e.target.value)} placeholder="Optional link"/></Field></>;
+      case 'project': return <><span className="section-no">02</span><h1>The project</h1><p className="section-intro">What do you want to make? A working idea is enough; it does not need to be fully figured out.</p><Field label="Working title" required><input value={application.projectTitle} onChange={e=>update('projectTitle',e.target.value)} placeholder="A working title is perfectly fine"/></Field><Field label="Give us the 30-second version" required hint="What are you making? What form will it take? What would actually happen?"><TextArea value={application.projectSummary} onChange={v=>update('projectSummary',v)} max={700} placeholder="A few sentences is plenty."/></Field><div className="row2"><Field label="Format / discipline"><input value={application.projectFormat} onChange={e=>update('projectFormat',e.target.value)} placeholder="e.g. 3-night play, short film, EP"/></Field><Field label="Where will it happen?"><input value={application.projectLocation} onChange={e=>update('projectLocation',e.target.value)} placeholder="City, venue, online, TBD…"/></Field></div></>;
+      case 'vision': return <><span className="section-no">03</span><h1>Artistic vision</h1><p className="section-intro">This is not a writing contest. Tell us what excites you about the work in language you would actually use with another artist.</p><div className="soft-note"><strong>Keep it human.</strong> Short answers are welcome. AI can help you organize or edit, but the ideas should still sound and feel like yours.</div><Field label="What excites you about the work?" required hint="What do you want people to experience? What feels distinctive about the idea, interpretation, story, sound, look, or approach?"><TextArea value={application.artisticVision} onChange={v=>update('artisticVision',v)} max={900}/></Field><Field label="Why this project, and why now?" hint="Optional. A few sentences is enough."><TextArea value={application.whyNow} onChange={v=>update('whyNow',v)} max={600}/></Field></>;
+      case 'team': return <><span className="section-no">04</span><h1>You & the team</h1><p className="section-intro">We do not expect a finished team. Tell us enough to understand your role and why this project makes sense for you.</p><Field label="What will your role be?" hint="Actor, director, producer, writer, musician, designer, several roles, etc."><input value={application.applicantRole} onChange={e=>update('applicantRole',e.target.value)}/></Field><Field label="Why are you the person to make this?" required hint="Don't give us a résumé. Tell us what you've made, learned, done, or lived that makes you ready to take this on."><TextArea value={application.whyYou} onChange={v=>update('whyYou',v)} max={700}/></Field><Field label="Who else is already involved?" hint="Names + roles are enough. If nobody yet, leave it blank."><TextArea value={application.collaborators} onChange={v=>update('collaborators',v)} rows={3} max={500}/></Field><Field label="What roles or collaborators do you still need?" hint="Optional."><TextArea value={application.openRoles} onChange={v=>update('openRoles',v)} rows={3} max={450}/></Field></>;
+      case 'timeline': return <><span className="section-no">05</span><h1>Making it real</h1><p className="section-intro">Help us understand where the project stands and what it will take to pull it off. We don't expect everything to be figured out.</p><Field label="What have you already done, and what still needs to happen?" hint="Research, writing, rehearsals, prototypes, collaborators, permissions, locations, testing—or simply thinking it through. Tell us where things stand today."><TextArea value={application.projectStatus} onChange={v=>update('projectStatus',v)} max={700}/></Field><Field label="Key milestones" required hint="A handful is enough. Dates can be approximate: “October,” “Winter 2027,” etc."><div className="timeline-list">{application.timeline.map(row=><div className="timeline-row" key={row.id}><input aria-label="Date" placeholder="When" value={row.date} onChange={e=>setTimelineRow(row.id,'date',e.target.value)}/><input aria-label="Milestone" placeholder="What happens" value={row.milestone} onChange={e=>setTimelineRow(row.id,'milestone',e.target.value)}/><button className="icon-btn" aria-label="Remove timeline row" onClick={()=>removeTimeline(row.id)} disabled={application.timeline.length===1}>×</button></div>)}</div><button className="add-row" onClick={addTimeline}>+ Add milestone</button></Field><Field label="What feels hardest or most uncertain?" hint="One or two things is enough. Naming a risk does not count against you—we're interested in how you're thinking about it."><TextArea value={application.projectRisks} onChange={v=>update('projectRisks',v)} rows={3} max={550}/></Field></>;
+      case 'budget': return <><span className="section-no">06</span><h1>Budget</h1><p className="section-intro">Use realistic estimates, not false precision. Grants range from {money(grantConfig.minGrant)} to {money(grantConfig.maxGrant)}. A grant may cover up to 100% of project costs, including reasonable compensation for your own work.</p><div className="row2"><Field label="Grant amount requested" required hint={`${money(grantConfig.minGrant)}–${money(grantConfig.maxGrant)}`}><input type="number" min={grantConfig.minGrant} max={grantConfig.maxGrant} step="100" value={application.grantRequest} onChange={e=>update('grantRequest',e.target.value)} placeholder="0"/></Field><Field label="Other confirmed / expected funding"><input type="number" min="0" step="100" value={application.otherFunding} onChange={e=>update('otherFunding',e.target.value)} placeholder="0"/></Field></div>{amountOutOfRange && <div className="missing-box">Please request between {money(grantConfig.minGrant)} and {money(grantConfig.maxGrant)}.</div>}<Field label="What will the money pay for?" required hint="Include your own labor if you plan to pay yourself. Rough estimates are fine."><div className="budget-list">{application.budget.map(row=><div className="budget-row" key={row.id}><input aria-label="Budget item" placeholder="e.g. Rehearsal space / my producing fee" value={row.label} onChange={e=>setBudgetRow(row.id,'label',e.target.value)}/><input aria-label="Amount" type="number" min="0" step="50" placeholder="$" value={row.amount} onChange={e=>setBudgetRow(row.id,'amount',e.target.value)}/><button className="icon-btn" aria-label="Remove budget row" onClick={()=>removeBudget(row.id)} disabled={application.budget.length===1}>×</button></div>)}</div><button className="add-row" onClick={addBudget}>+ Add budget item</button></Field><div className="budget-summary"><div><span>Total project budget</span><strong>{money(budgetTotal)}</strong></div><div><span>Grant requested</span><strong>{money(grantRequestNum)}</strong></div><div><span>Other funding</span><strong>{money(otherFundingNum)}</strong></div><div className="total"><span>Unfunded gap</span><strong>{money(fundingGap)}</strong></div></div><Field label="If you received less than you asked for, what would you cut first—and what would you protect?" hint="Optional. We want to understand your priorities, not encourage you to under-budget."><TextArea value={application.fundingPriorities} onChange={v=>update('fundingPriorities',v)} rows={3} max={500}/></Field></>;
+      case 'impact': return <><span className="section-no">07</span><h1>Audience & success</h1><p className="section-intro">Two short, optional questions. A small, specific audience is completely valid.</p><Field label="Who do you hope experiences the work, and how might they find it?"><TextArea value={application.audienceReach} onChange={v=>update('audienceReach',v)} rows={3} max={600}/></Field><Field label="What could completing this project unlock, and what would make it feel successful?"><TextArea value={application.impactSuccess} onChange={v=>update('impactSuccess',v)} rows={3} max={650}/></Field></>;
+      case 'samples': return <><span className="section-no">08</span><h1>Work samples</h1><p className="section-intro">Useful beyond this application. If you have samples, give us a quick way to see your work without building a special submission package.</p><Field label="Work sample links" hint="Two to three links is ideal, under five minutes total. For longer videos, timestamp the part you want us to watch. If you don't have a relevant sample yet, that's okay."><TextArea value={application.workSamples} onChange={v=>update('workSamples',v)} rows={4} max={1000} placeholder={'1. https://… — watch 01:20–02:45\n2. https://…'}/></Field><Field label="A line about each sample" hint="Tell us what we're looking at, your role in it, and—if useful—why you chose it."><TextArea value={application.sampleNotes} onChange={v=>update('sampleNotes',v)} rows={3} max={650}/></Field><Field label="Optional supporting material" hint="Script excerpt, mood board, deck, writing sample, project page, etc."><input value={application.supportingLink} onChange={e=>update('supportingLink',e.target.value)} placeholder="Optional URL"/></Field></>;
+      case 'review': return <><span className="section-no">09</span><h1>Review & submit</h1><p className="section-intro">Read it once. Fix anything that does not feel like you. Then submit; the PDF is delivered automatically.</p>{missing.length > 0 && <div className="missing-box"><strong>{missing.length} item{missing.length===1?'':'s'} still needed:</strong> {missing.join(' · ')}</div>}<Review title="Applicant" items={[['Name',application.name],['Email',application.email],['Location',application.city],['Discipline',application.discipline],['Portfolio',application.website]]}/><Review title="Project" items={[['Title',application.projectTitle],['Overview',application.projectSummary],['Format',application.projectFormat],['Location',application.projectLocation]]}/><Review title="Vision" items={[['What excites you',application.artisticVision],['Why now',application.whyNow]]}/><Review title="You & team" items={[['Your role',application.applicantRole],['Why you',application.whyYou],['Collaborators',application.collaborators],['Open roles',application.openRoles]]}/><Review title="Making it real" items={[['Where things stand',application.projectStatus],['Hardest / uncertain',application.projectRisks]]}/><Review title="Budget" items={[['Grant requested',money(grantRequestNum)],['Project budget',money(budgetTotal)],['Other funding',money(otherFundingNum)],['If funded below request',application.fundingPriorities]]}/><Review title="Audience & success" items={[['Audience & reach',application.audienceReach],['Impact & success',application.impactSuccess]]}/><Review title="Work samples" items={[['Samples',application.workSamples],['Sample notes',application.sampleNotes],['Supporting material',application.supportingLink]]}/><div className="soft-note"><strong>If funded:</strong> you’ll receive written award/payment details, keep basic records for major expenses, complete one short mid-project check-in, and send a brief final report. If the project changes materially or falls through, contact us before redirecting the funds.</div><div className="field"><label style={{display:'flex',gap:10,alignItems:'flex-start',fontWeight:650,lineHeight:1.5}}><input type="checkbox" style={{width:18,marginTop:3}} checked={application.certification} onChange={e=>update('certification',e.target.checked)}/><span>I confirm that this application accurately represents the project I want to pursue and the information is true to the best of my knowledge.</span></label></div>{submitError && <div className="missing-box"><strong>Submission problem:</strong> {submitError} You can also contact <a href={`mailto:${grantConfig.contactEmail}`}>{grantConfig.contactEmail}</a>.</div>}<button className="button primary" disabled={missing.length>0 || submitting} onClick={submit} style={{opacity:(missing.length||submitting)?0.45:1,cursor:(missing.length||submitting)?'not-allowed':'pointer'}}>{submitting ? 'Submitting…' : 'Submit application'} <span>→</span></button></>;
     }
   };
 
-  return <main className="app-shell">
-    <aside className="app-nav">
-      <Link className="brand" href="/">Choroni West<br/>Arts Grant</Link>
-      <div className="app-progress"><div className="progress-meta"><span>{percent}% complete</span><span>{remaining ? `${remaining} remaining` : 'Ready to review'}</span></div><div className="progress-track"><div className="progress-fill" style={{width:`${percent}%`}}/></div></div>
-      <nav className="steps" aria-label="Application sections">{sections.map((s,i)=><button key={s.id} className={`step-btn ${s.id===section?'active':''} ${sectionComplete(s.id)?'complete':''}`} onClick={()=>go(s.id)}><span className="n">{String(i+1).padStart(2,'0')}</span><span>{s.label}</span><span className="state"/></button>)}</nav>
-      <div className="save-status">{savedAt}<br/><a href={`mailto:${grantConfig.contactEmail}`}>Questions? {grantConfig.contactEmail}</a></div>
-    </aside>
-    <div className="app-main">
-      <div className="app-top"><Link href="/">← Grant overview</Link></div>
-      <section className="section-card">{renderSection()}</section>
-      {!submitted && <div className="nav-actions">{currentIndex>0?<button className="button secondary" onClick={prev}>← Previous</button>:<span/>}{currentIndex<sections.length-1&&<button className="button primary next" onClick={next}>Save & continue →</button>}</div>}
-    </div>
-  </main>;
+  const groups = ['The idea', 'The plan', 'Finish'] as const;
+
+  return <main className="app-shell"><aside className="app-nav"><Link className="brand" href="/">Choroni West<br/>Arts Grant</Link><div className="app-progress"><div className="progress-meta"><span>{percent}% complete</span><span>{remaining ? `${remaining} remaining` : 'Ready to review'}</span></div><div className="progress-track"><div className="progress-fill" style={{width:`${percent}%`}}/></div></div><nav className="steps" aria-label="Application sections">{groups.map(group=><div className="step-group" key={group}><div className="step-group-label">{group}</div>{sections.filter(s=>s.group===group).map((s,i)=><button key={s.id} className={`step-btn ${s.id===section?'active':''} ${sectionComplete(s.id)?'complete':''}`} onClick={()=>go(s.id)}><span>{s.label}</span><span className="state"/></button>)}</div>)}</nav><div className="save-status">{savedAt}<br/><span>Your draft is saved only in this browser/device.</span><br/><a href={`mailto:${grantConfig.contactEmail}`}>Questions? {grantConfig.contactEmail}</a></div></aside><div className="app-main"><div className="app-top"><Link href="/">← Grant overview</Link></div><section className="section-card">{renderSection()}</section>{!submitted && <div className="nav-actions">{currentIndex>0?<button className="button secondary" onClick={prev}>← Previous</button>:<span/>}{currentIndex<sections.length-1&&<button className="button primary next" onClick={next}>Save & continue →</button>}</div>}</div></main>;
 }
 
 function Review({ title, items }: { title: string; items: [string,string][] }) {
